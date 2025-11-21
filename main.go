@@ -18,37 +18,36 @@ func main() {
 	// Open the Excel file
 	f, err := excelize.OpenFile(inputFileName)
 	if err != nil {
-		log.Fatalf("Failed to open %s: %v\nMake sure the file exists in the current directory.", inputFileName, err)
+		log.Fatalf("无法打开 %s: %v\n请确保文件存在于当前目录下。", inputFileName, err)
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			log.Printf("Error closing file: %v", err)
+			log.Printf("关闭文件时出错: %v", err)
 		}
 	}()
 
 	// Get the first sheet name
 	sheetName := f.GetSheetName(0)
 	if sheetName == "" {
-		log.Fatal("No sheets found in the Excel file")
+		log.Fatal("Excel 文件中未找到工作表")
 	}
 
 	// Get all rows from the sheet
-
-rows, err := f.GetRows(sheetName)
+	rows, err := f.GetRows(sheetName)
 	if err != nil {
-		log.Fatalf("Failed to get rows: %v", err)
+		log.Fatalf("获取行数据失败: %v", err)
 	}
 
-	fmt.Printf("Successfully read %d rows from %s.\n", len(rows), inputFileName)
+	fmt.Printf("成功从 %s 读取了 %d 行。\n", inputFileName, len(rows))
 
 	// Prompt user for key
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter the JSON key to extract: ")
+	fmt.Print("请输入要提取的 JSON 键名: ")
 	keyToExtract, _ := reader.ReadString('\n')
 	keyToExtract = strings.TrimSpace(keyToExtract)
 
 	if keyToExtract == "" {
-		log.Fatal("Key cannot be empty")
+		log.Fatal("键名不能为空")
 	}
 
 	// Create a new Excel file for output
@@ -56,9 +55,9 @@ rows, err := f.GetRows(sheetName)
 	outputSheet := "Sheet1"
 	// Create a new sheet if it doesn't exist (NewFile creates Sheet1 by default)
 	index, err := outputFile.NewSheet(outputSheet)
-    if err != nil {
-        log.Fatalf("Failed to create new sheet: %v", err)
-    }
+	if err != nil {
+		log.Fatalf("创建新工作表失败: %v", err)
+	}
 	outputFile.SetActiveSheet(index)
 
 	validRowCount := 0
@@ -74,7 +73,7 @@ rows, err := f.GetRows(sheetName)
 		// Basic check: Must start with '[' to be a JSON array
 		if !strings.HasPrefix(cellValue, "[") {
 			// Likely a header or empty or malformed
-			fmt.Printf("Skipping row (not an array): %s\n", cellValue)
+			fmt.Printf("跳过该行（非数组）: %s\n", cellValue)
 			continue
 		}
 
@@ -88,15 +87,15 @@ rows, err := f.GetRows(sheetName)
 		if err != nil {
 			// Debug: Print why it failed
 			if len(cellValue) > 50 {
-				fmt.Printf("Skipping invalid JSON (start: %s...): %v\n", cellValue[:50], err)
+				fmt.Printf("跳过无效 JSON (开头: %s...): %v\n", cellValue[:50], err)
 			} else {
-				fmt.Printf("Skipping invalid JSON (%s): %v\n", cellValue, err)
+				fmt.Printf("跳过无效 JSON (%s): %v\n", cellValue, err)
 			}
 			continue
 		}
 
 		validRowCount++
-		
+
 		// Extract values
 		var extractedValues []string
 		for _, item := range data {
@@ -120,9 +119,9 @@ rows, err := f.GetRows(sheetName)
 	}
 
 	if err := outputFile.SaveAs(outputFileName); err != nil {
-		log.Fatalf("Failed to save output file: %v", err)
+		log.Fatalf("保存输出文件失败: %v", err)
 	}
 
-	fmt.Printf("Processed %d valid rows.\n", validRowCount)
-	fmt.Printf("Output saved to %s\n", outputFileName)
+	fmt.Printf("共处理 %d 行有效数据。\n", validRowCount)
+	fmt.Printf("结果已保存至 %s\n", outputFileName)
 }
