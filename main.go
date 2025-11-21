@@ -69,14 +69,29 @@ rows, err := f.GetRows(sheetName)
 		}
 
 		// Assume the JSON is in the first column (Column A)
-		cellValue := row[0]
+		cellValue := strings.TrimSpace(row[0])
+
+		// Basic check: Must start with '[' to be a JSON array
+		if !strings.HasPrefix(cellValue, "[") {
+			// Likely a header or empty or malformed
+			fmt.Printf("Skipping row (not an array): %s\n", cellValue)
+			continue
+		}
+
+		// Normalize: Replace single quotes with double quotes (common in Python exports)
+		// Note: This is a simple fix and might break if strings strictly contain single quotes.
+		cellValue = strings.ReplaceAll(cellValue, "'", "\"")
 
 		// Try to parse as JSON array of objects
 		var data []map[string]interface{}
 		err := json.Unmarshal([]byte(cellValue), &data)
 		if err != nil {
-			// Skip invalid JSON rows
-			// fmt.Printf("Skipping row %d: Invalid JSON\n", rIdx+1)
+			// Debug: Print why it failed
+			if len(cellValue) > 50 {
+				fmt.Printf("Skipping invalid JSON (start: %s...): %v\n", cellValue[:50], err)
+			} else {
+				fmt.Printf("Skipping invalid JSON (%s): %v\n", cellValue, err)
+			}
 			continue
 		}
 
@@ -92,15 +107,14 @@ rows, err := f.GetRows(sheetName)
 		}
 
 		// Write to output file
-		// If extractedValues is empty, we leave the row empty or write nothing?
-		// The prompt implies "split in excel", so each value in a separate column.
+		// 1. Write comma-joined string to the first column (Column A)
+		joinedString := strings.Join(extractedValues, ",")
+		cellName, _ := excelize.CoordinatesToCellName(1, validRowCount)
+		outputFile.SetCellValue(outputSheet, cellName, joinedString)
+
+		// 2. Write individual values starting from the second column (Column B)
 		for cIdx, val := range extractedValues {
-			// Excel columns are 1-based, rows are 1-based.
-			// Output row should match valid row count (packed) or original row index?
-			// "remove invalid json rows" implies the output might be compacted.
-			// Let's compact them (use validRowCount).
-			
-			cellName, _ := excelize.CoordinatesToCellName(cIdx+1, validRowCount)
+			cellName, _ := excelize.CoordinatesToCellName(cIdx+2, validRowCount)
 			outputFile.SetCellValue(outputSheet, cellName, val)
 		}
 	}
